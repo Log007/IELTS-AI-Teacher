@@ -21,4 +21,12 @@ for(const [sequence,expected] of [[[short,fixture],200],[[short,short,fixture],2
  try{const response=await handleApi(req('lesson',{}),env);const result=await response.json();assert.equal(response.status,expected);assert.equal(calls,sequence.length);if(expected===200){assert.equal(result.lesson.passage.trim().split(/\s+/).length,740);assert(map.has('users/test/lessons/'+today+'.json'))}else{assert.match(result.error,/420/);assert(!map.has('users/test/lessons/'+today+'.json'))}}finally{globalThis.fetch=realFetch}
 }
 console.log('PASS: short draft repaired by review, bounded third-call repair, exact word-count error and no invalid lesson saved');
+const {repairCounts,validateLesson}=await import('../src/api.js');
+let countCalls=0;
+globalThis.fetch=async(_url,options)=>{
+ const request=JSON.parse(options.body),task=JSON.parse(request.messages.at(-1).content);countCalls++;
+ const result=task.type?{questions:Array.from({length:task.requiredCount},(_,i)=>({type:task.type,question:task.type+' '+i,answers:[task.type==='判断题'?'TRUE':task.type==='选择题'?'A. Evidence':'evidence'],...(task.type==='判断题'?{options:['TRUE','FALSE','NOT GIVEN']}:task.type==='选择题'?{options:['A. Evidence','B. Other']}:{maxWords:1}),maxWords:1,evidence:'Evidence',explanation:'说明',strategy:'策略'}))}:{vocabulary:Array.from({length:5},(_,i)=>Object.fromEntries(['word','ipa','pos','meaning','collocation','example','translation','synonyms','pitfall'].map(k=>[k,k+countCalls+i])))};
+ return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result)}}]}));
+};
+try{const broken={...fixture,questions:fixture.questions.slice(0,12),vocabulary:fixture.vocabulary.slice(0,9)};const repaired=await repairCounts(broken,'test-only-fake-key');assert.equal(countCalls,5);assert.equal(repaired.questions.length,13);assert.equal(repaired.vocabulary.length,10);assert.equal(new Set(repaired.questions.map(q=>q.type)).size,3);assert.equal(repaired.passage,broken.passage);validateLesson(repaired);countCalls=0;await repairCounts(fixture,'test-only-fake-key');assert.equal(countCalls,0);console.log('PASS: 12 questions / 9 words repaired in bounded groups; passage preserved; correct counts trigger no extra API call')}finally{globalThis.fetch=realFetch}
 
