@@ -16,7 +16,7 @@ const fixture={title:'Test passage',topic:'Environment',passage:'Evidence '.repe
 const short={...fixture,passage:'Evidence '.repeat(420)};
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 for(const [sequence,expected] of [[[short,fixture],200],[[short,short,fixture],200],[[short,short,short],502]]){
- map.delete('users/test/lessons/'+today+'.json');let calls=0;
+ map.delete('users/test/lessons/'+today+'.json');map.delete('users/test/drafts/'+today+'.json');let calls=0;
  globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(sequence[calls++])}}]}),{headers:{'Content-Type':'application/json'}});
  try{const response=await handleApi(req('lesson',{}),env);const result=await response.json();assert.equal(response.status,expected);assert.equal(calls,sequence.length);if(expected===200){assert.equal(result.lesson.passage.trim().split(/\s+/).length,740);assert(map.has('users/test/lessons/'+today+'.json'))}else{assert.match(result.error,/420/);assert(!map.has('users/test/lessons/'+today+'.json'))}}finally{globalThis.fetch=realFetch}
 }
@@ -29,4 +29,13 @@ globalThis.fetch=async(_url,options)=>{
  return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(result)}}]}));
 };
 try{const broken={...fixture,questions:fixture.questions.slice(0,12),vocabulary:fixture.vocabulary.slice(0,9)};const repaired=await repairCounts(broken,'test-only-fake-key');assert.equal(countCalls,5);assert.equal(repaired.questions.length,13);assert.equal(repaired.vocabulary.length,10);assert.equal(new Set(repaired.questions.map(q=>q.type)).size,3);assert.equal(repaired.passage,broken.passage);validateLesson(repaired);countCalls=0;await repairCounts(fixture,'test-only-fake-key');assert.equal(countCalls,0);console.log('PASS: 12 questions / 9 words repaired in bounded groups; passage preserved; correct counts trigger no extra API call')}finally{globalThis.fetch=realFetch}
+
+const letterQuestion={type:'选择题',question:'Choose one answer.',options:['A. First explanation','B. Second explanation'],answers:['B'],maxWords:6,evidence:'Evidence',explanation:'解释',strategy:'策略'};
+const variants=structuredClone(fixture);variants.questions[0]=letterQuestion;variants.questions[1]={...variants.questions[1],type:'填空题',options:[],answers:['evidence']};variants.questions[2]={...variants.questions[2],type:'判断题',answers:['true'],options:['TRUE','FALSE','NOT GIVEN']};
+validateLesson(variants);assert.equal(variants.questions[0].answers[0],'B. Second explanation');assert.equal(variants.questions[1].options,undefined);assert.equal(variants.questions[2].answers[0],'TRUE');
+const invalid=structuredClone(variants);invalid.questions[0].answers=['Z'];assert.throws(()=>validateLesson(invalid),/Q1.*无法唯一匹配/);
+const ambiguous=structuredClone(variants);ambiguous.questions[0].options=['A. Same','B. Same'];ambiguous.questions[0].answers=['Same'];assert.throws(()=>validateLesson(ambiguous),/无法唯一匹配/);
+console.log('PASS: answer labels, empty fill-in options and judgment case normalized; unknown and ambiguous mappings rejected');
+
+validateLesson({...fixture,passage:'Evidence '.repeat(875)});console.log('PASS: an 875-word passage within training tolerance is accepted');
 
