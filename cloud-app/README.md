@@ -22,3 +22,9 @@
 
 src/ 为可维护源码；scripts/build.mjs 将页面与API打包到 Worker。运行 `node scripts/build.mjs`、`node scripts/validate-artifact.mjs`、`node scripts/test-api.mjs`。测试使用模拟存储和模拟密钥，不调用真实付费API。实际模型调用需要用户在网站里配置密钥后验证。
 
+## 官方材料优先（更新）
+
+页面默认展示 IELTS.org 与 British Council 官方来源链接。它们是官方样题/练习，不声称为历年实考真题。已取消打开页面和保存密钥后自动生成 AI 练习；用户主动点击“AI 原创补充练习”才会调用模型。官方页面的作答尚未同步至本站，不能把链接入口描述为已经内置官方题库。前文有关自动生成的描述以本节为准。
+
+生成连接现在以 NDJSON 即时响应并每5秒发送进度，避免整包生成期间长时间没有下行数据。DeepSeek 请求显式关闭 thinking，输出截断时明确报错。修复后的尝试计数独立于旧版，最多10次/日。真实模型调用仍需用户验证。
+
