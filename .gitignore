@@ -4,4 +4,5 @@
 node_modules/
 *.log
 ielts-learner-profile*.json
+.deepseek-key
 
