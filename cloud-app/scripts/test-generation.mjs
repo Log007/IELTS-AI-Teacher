@@ -38,4 +38,8 @@ const ambiguous=structuredClone(variants);ambiguous.questions[0].options=['A. Sa
 console.log('PASS: answer labels, empty fill-in options and judgment case normalized; unknown and ambiguous mappings rejected');
 
 validateLesson({...fixture,passage:'Evidence '.repeat(875)});console.log('PASS: an 875-word passage within training tolerance is accepted');
+const evidenceVariant=structuredClone(fixture);evidenceVariant.questions[0].evidence='"Evidence   Evidence"';validateLesson(evidenceVariant);assert.equal(evidenceVariant.questions[0].evidence,'Evidence Evidence');
+map.delete('users/test/lessons/'+today+'.json');const saved=structuredClone(fixture);saved.questions[2].evidence='Not in the passage';map.set('users/test/drafts/'+today+'.json',JSON.stringify({lesson:saved,stage:'repaired'}));let repairedCalls=0;
+globalThis.fetch=async()=>{repairedCalls++;return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:[fixture.questions[2]]})}}]}))};
+try{const response=await handleApi(req('lesson',{}),env);assert.equal(response.status,200);const result=await response.json();assert.equal(repairedCalls,1);assert.equal(result.lesson.passage,fixture.passage);assert.equal(result.lesson.questions.length,13);console.log('PASS: saved draft recovers via one-question repair without regenerating passage or full lesson')}finally{globalThis.fetch=realFetch}
 
