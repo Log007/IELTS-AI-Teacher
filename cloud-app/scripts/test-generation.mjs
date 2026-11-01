@@ -11,4 +11,14 @@ try{
  let text='';while(true){const r=await reader.read();if(r.done)break;text+=new TextDecoder().decode(r.value)}await Promise.all(tasks);assert.match(text,/超长被截断/);assert(!text.includes('test-only-fake-key'));
  console.log('PASS: immediate progress before upstream completes, non-thinking request, truncated output error propagation and stream close');
 }finally{globalThis.fetch=realFetch}
+// Regression: short drafts must reach review; a failed review gets one bounded repair.
+const fixture={title:'Test passage',topic:'Environment',passage:'Evidence '.repeat(740),translation:'段意',sentences:'句法',arrangement:'诊断',vocabulary:Array.from({length:10},(_,i)=>Object.fromEntries(['word','ipa','pos','meaning','collocation','example','translation','synonyms','pitfall'].map(k=>[k,k+i]))),questions:Array.from({length:13},(_,i)=>({type:['填空题','选择题','段落匹配'][i%3],question:'Question '+i,answers:['evidence'],maxWords:1,evidence:'Evidence',explanation:'Explanation',strategy:'Strategy'}))};
+const short={...fixture,passage:'Evidence '.repeat(420)};
+const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+for(const [sequence,expected] of [[[short,fixture],200],[[short,short,fixture],200],[[short,short,short],502]]){
+ map.delete('users/test/lessons/'+today+'.json');let calls=0;
+ globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(sequence[calls++])}}]}),{headers:{'Content-Type':'application/json'}});
+ try{const response=await handleApi(req('lesson',{}),env);const result=await response.json();assert.equal(response.status,expected);assert.equal(calls,sequence.length);if(expected===200){assert.equal(result.lesson.passage.trim().split(/\s+/).length,740);assert(map.has('users/test/lessons/'+today+'.json'))}else{assert.match(result.error,/420/);assert(!map.has('users/test/lessons/'+today+'.json'))}}finally{globalThis.fetch=realFetch}
+}
+console.log('PASS: short draft repaired by review, bounded third-call repair, exact word-count error and no invalid lesson saved');
 
