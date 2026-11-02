@@ -3,3 +3,5 @@
 @media(max-width:1049px){main{padding:16px;padding-bottom:70px}header{padding:24px 18px}#chatToggle{position:fixed;bottom:18px;right:18px;z-index:6;box-shadow:0 4px 18px #0004}#tutor{display:none;position:fixed;right:12px;bottom:72px;width:min(380px,calc(100vw - 24px));height:72vh;z-index:5;box-shadow:0 10px 50px #0004}#tutor.open{display:flex;flex-direction:column}}
 [hidden]{display:none!important}
 
+.pronounce{font-size:14px;padding:7px 12px;margin:8px 0;background:#e3f0e9;color:#125b4d;border:1px solid #a5cbbb}.pronounce:hover{background:#cde6da}.pronounce[aria-pressed="true"]{background:#146e60;color:white}
+
