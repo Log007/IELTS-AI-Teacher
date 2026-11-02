@@ -5,3 +5,5 @@
 
 .pronounce{font-size:14px;padding:7px 12px;margin:8px 0;background:#e3f0e9;color:#125b4d;border:1px solid #a5cbbb}.pronounce:hover{background:#cde6da}.pronounce[aria-pressed="true"]{background:#146e60;color:white}
 
+.daily-tip{background:#edf5e9;border-left:4px solid #659653;padding:12px 16px;margin:18px 0;line-height:1.7}.daily-tip h3{margin-top:0}.question.correct{border:2px solid #26834c}.question.incorrect{border:2px solid #b93e38}.inline-result{margin-top:16px;padding:14px;background:#f2f8f4;line-height:1.7}.incorrect .inline-result{background:#fff0ee}.inline-result strong{color:#196c3b}.incorrect .inline-result strong{color:#a32824}.answer-map{display:flex;flex-wrap:wrap;gap:8px}.answer-map .correct{background:#217542}.answer-map .incorrect{background:#b13530}.diagnosis-panel{border:1px solid #b2cec0;background:#f4faf6;padding:20px;border-radius:12px;margin:20px 0}.diagnosis-panel fieldset{border:1px solid #bfd2c8;border-radius:8px;margin:16px 0;padding:14px}#diagnosisResult{white-space:pre-wrap;line-height:1.8}#feedback button{margin:6px}
+
