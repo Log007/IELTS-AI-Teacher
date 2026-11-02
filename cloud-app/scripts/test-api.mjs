@@ -28,4 +28,16 @@ const originalFetch=globalThis.fetch;globalThis.fetch=async(_url,options)=>{cons
 try{let response=await call('diagnosis',{recordId:gradeBody.id,causes});assert.equal(response.status,200);const saved=(await response.json()).record;assert.equal(saved.diagnosis.causes.length,13);assert.match(saved.diagnosis.content,/学生自述/);assert.equal(saved.score,1)}finally{globalThis.fetch=originalFetch}
 assert.equal(trainingPlan('2026-11-08').targetMin,650);assert.equal(trainingPlan('2026-11-09').min,800);assert.equal(trainingPlan('2026-11-09').targetMax,950);
 console.log('PASS: objective grade saved first, feedback cannot alter submitted score, diagnosis isolated and persisted, November 9 training boundary');
+const noAnalysis=await call('diagnosis-dialogue?recordId='+submission.id);assert.equal(noAnalysis.status,409);
+assert.equal((await call('diagnosis-dialogue?recordId='+gradeBody.id,undefined,'other')).status,404);
+let dialogueCalls=0;globalThis.fetch=async(_url,options)=>{dialogueCalls++;const payload=JSON.parse(options.body);assert.match(payload.messages[1].content,/根据学生自述/);if(dialogueCalls===2)assert(payload.messages.some(m=>m.role==='assistant'&&m.content.includes('请指出原文')));return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'请指出原文中限制范围的词，再判断你的答案。'}}]}))};
+try{
+ const first={recordId:gradeBody.id,message:'我当时没有注意到 some。',requestId:'cc000000-0000-0000-0000-000000000000',baseVersion:0};let result=await (await call('diagnosis-dialogue',first)).json();assert.equal(result.dialogue.version,1);assert.equal(result.dialogue.messages.length,2);
+ const duplicate=await (await call('diagnosis-dialogue',first)).json();assert.equal(duplicate.dialogue.messages.length,2);assert.equal(dialogueCalls,1);
+ assert.equal((await call('diagnosis-dialogue',{...first,requestId:'dd000000-0000-0000-0000-000000000000'})).status,409);assert.equal(dialogueCalls,1);
+ const second=await (await call('diagnosis-dialogue',{...first,message:'原文用的是 some，所以不能推成 all，对吗？',requestId:'ee000000-0000-0000-0000-000000000000',baseVersion:1})).json();assert.equal(second.dialogue.version,2);assert.equal(second.dialogue.messages.length,4);
+ const reloaded=await (await call('diagnosis-dialogue?recordId='+gradeBody.id)).json();assert.equal(reloaded.dialogue.messages.length,4);
+ const exported=await (await call('records?includeDialogues=1')).json();assert.equal(exported.records.find(r=>r.id===gradeBody.id).followUp.messages.length,4);
+ console.log('PASS: follow-up requires owned analyzed record, preserves context and cloud history, retries are idempotent, stale versions rejected, transcript exported');
+}finally{globalThis.fetch=originalFetch}
 
