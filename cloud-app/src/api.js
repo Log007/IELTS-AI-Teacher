@@ -30,13 +30,21 @@ export function questionIssue(q,passage){
  if(q.options&&(!Array.isArray(q.options)||!q.options.every(x=>typeof x==='string')||!q.answers.every(a=>q.options.includes(a))))return '答案无法唯一匹配选项';
  return null;
 }
+// A repair selects a zero-based option index; the server copies the exact option.
+// Invalid indexes deliberately remain invalid and cannot fall back to a conflicting text answer.
+export function applyOptionIndex(q){
+ if(!q||!Object.hasOwn(q,'correctOptionIndex'))return q;
+ const index=q.correctOptionIndex;
+ q.answers=Array.isArray(q.options)&&Number.isInteger(index)&&index>=0&&index<q.options.length&&typeof q.options[index]==='string'?[q.options[index]]:[];
+ delete q.correctOptionIndex;return q;
+}
 export async function repairQuestions(p,key,onProgress=async()=>{}){
  normalizeLesson(p);if(!Array.isArray(p.questions)||typeof p.passage!=='string')return p;
  for(let i=0;i<p.questions.length;i++){
  let issue=questionIssue(p.questions[i],p.passage);if(!issue)continue;
  for(let attempt=0;attempt<2;attempt++){
  console.info(JSON.stringify({route:'/api/lesson',stage:'repair_question',number:i+1,issue}));
- const response=await deepseek(key,[{role:'system',content:'你是雅思阅读校对员。只修复给定题目，不能修改原文。严格输出JSON对象 {"questions":[一个修正后的题目]}。字段 type（判断题/选择题/填空题/段落匹配）,question,options（填空题不需要）,answers（字符串数组）,maxWords（1至6整数）,evidence（必须从原文直接复制一段连续原句，不要加引号、段落编号、中文说明或省略号）,explanation（中文原文定位与推理）,strategy（解题建议）。题目必须有明确的原文支持。答案必须与选项完整文本一致；填空答案来自原文并满足字数限制。'}, {role:'user',content:JSON.stringify({passage:p.passage,question:p.questions[i],issue})}],{response_format:{type:'json_object'},max_tokens:2000});
+ const response=await deepseek(key,[{role:'system',content:'你是雅思阅读校对员。只修复给定题目，不能修改原文。严格输出JSON对象 {"questions":[一个修正后的题目]}。字段 type（判断题/选择题/填空题/段落匹配）,question,maxWords（1至6整数）,evidence（必须从原文直接复制一段连续原句，不要加引号、段落编号、中文说明或省略号）,explanation（中文原文定位与推理）,strategy（解题建议）。选择、判断、匹配题必须给 options 字符串数组和 correctOptionIndex（从0开始的正确选项下标），由程序取出选项作为答案，不要自行拼写完整选项答案。例如第二个选项正确就输出 correctOptionIndex:1。填空题省略 options 和 correctOptionIndex，只给 answers 字符串数组，答案来自原文并满足字数限制。如果原题无法修复，可以依据同一原文重新设计同一题型的一道无歧义题。不能更改原文或凭常识编造答案。'}, {role:'user',content:JSON.stringify({passage:p.passage,question:p.questions[i],issue})}],{response_format:{type:'json_object'},max_tokens:2000});
  const result=await checkedContent(response);if(result.questions?.length!==1){issue='必须只返回一个完整题目';continue}normalizeLesson({passage:p.passage,questions:result.questions});const updated=result.questions[0];issue=questionIssue(updated,p.passage);if(!issue){p.questions[i]=updated;await onProgress(p);break}
  // Feed the rejected revision back with the exact reason, rather than retrying the same draft forever.
  if(updated&&typeof updated==='object')p.questions[i]=updated;
@@ -48,12 +56,13 @@ export async function repairQuestions(p,key,onProgress=async()=>{}){
 export function normalizeLesson(p){
  if(!p||typeof p!=='object')return p;
  if(!Array.isArray(p.questions))return p;
- const label=s=>s.match(/^\s*\(?([A-Z]|[ivx]+)\)?(?:[.、):：]|\s+-)\s*/i);
+ const label=s=>s.normalize('NFKC').trim().match(/^(?:\(([A-Z]|[ivx]+)\)|([A-Z]|[ivx]+)[.、):：\-])\s*/i);
  for(const q of p.questions){
   if(!q||typeof q!=='object')continue;
   if(typeof q.evidence==='string')q.evidence=locateEvidence(p.passage,q.evidence);
   if(typeof q.answers==='string')q.answers=[q.answers];
   if(q.options&& !Array.isArray(q.options)&&typeof q.options==='object')q.options=Object.entries(q.options).map(([key,value])=>typeof value==='string'?key+'. '+value:value);
+  applyOptionIndex(q);
   if(q.type==='填空题'&&Array.isArray(q.options)&&q.options.length===0)delete q.options;
   if(q.type==='判断题'&&(!q.options||Array.isArray(q.options)&&q.options.length===0))q.options=['TRUE','FALSE','NOT GIVEN'];
   if(q.type!=='填空题')q.maxWords=6;
@@ -61,10 +70,13 @@ export function normalizeLesson(p){
   if(Array.isArray(q.options)&&q.options.every(o=>typeof o==='string')&&Array.isArray(q.answers)){
    q.answers=q.answers.map(answer=>{
     if(typeof answer!=='string')return answer;
-    const target=norm(answer);const candidates=q.options.filter(option=>{
+    const target=norm(answer),answerLabel=label(answer);const candidates=q.options.filter(option=>{
      if(norm(option)===target)return true;
      const m=label(option);if(!m)return false;
-     return norm(m[1])===target||norm(option.slice(m[0].length))===target;
+     const optionText=option.normalize('NFKC').trim().slice(m[0].length),optionLabel=norm(m[1]||m[2]);
+     if(optionLabel===target||norm(optionText)===target)return true;
+     // Both label and wording must agree: a conflicting "B. First explanation" is rejected.
+     return !!answerLabel&&optionLabel===norm(answerLabel[1]||answerLabel[2])&&norm(optionText)===norm(answer.normalize('NFKC').trim().slice(answerLabel[0].length));
     });
     return candidates.length===1?candidates[0]:answer;
    });

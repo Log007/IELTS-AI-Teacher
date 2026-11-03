@@ -74,4 +74,21 @@ const sequence=[bad,bad,{questions:[{...letterQuestion,answers:['Z']}]},{questio
 let recoveryCalls=0;
 globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(sequence[recoveryCalls++])}}]}));
 try{const response=await handleApi(req('lesson',{}),env);assert.equal(response.status,200);assert.equal(recoveryCalls,5);assert(map.has('users/test/lessons/'+today+'.json'));console.log('PASS: failed Q9 repair reaches bounded whole-lesson fallback and saves only validated content')}finally{globalThis.fetch=realFetch}
+// Equivalent punctuation must not require another paid repair.
+for(const [option,answer] of [['(B) Second explanation','B. Second explanation'],['B. Second explanation','（Ｂ） Second explanation'],['B: Second explanation','B) Second explanation']]){
+ const lesson=structuredClone(fixture);lesson.questions[10]={...letterQuestion,options:['A. First explanation',option],answers:[answer]};
+ validateLesson(lesson);assert.equal(lesson.questions[10].answers[0],option);
+}
+const conflict=structuredClone(fixture);conflict.questions[10]={...letterQuestion,answers:['B. First explanation']};assert.throws(()=>validateLesson(conflict),/无法唯一匹配/);
+const {applyOptionIndex}=await import('../src/api.js');
+for(const index of [-1,2,'1',null,0.5]){const q=applyOptionIndex({...letterQuestion,correctOptionIndex:index});assert.deepEqual(q.answers,[])}
+const indexed=applyOptionIndex({...letterQuestion,answers:['wrong text'],correctOptionIndex:1});assert.deepEqual(indexed.answers,['B. Second explanation']);assert(!Object.hasOwn(indexed,'correctOptionIndex'));
+console.log('PASS: parentheses/fullwidth label formatting normalized; conflicting text and invalid indexes rejected');
+// Actual failing route shape: an existing draft has Q11 with an invalid text answer.
+// A repair now supplies an index instead of duplicating a long option string.
+map.delete('users/test/lessons/'+today+'.json');map.delete('users/test/generation-v3/'+today+'.json');
+const q11draft=structuredClone(fixture);q11draft.questions[10]={...letterQuestion,answers:['Z']};map.set('users/test/drafts/'+today+'.json',JSON.stringify({lesson:q11draft}));
+let indexedCalls=0;
+globalThis.fetch=async(_url,options)=>{indexedCalls++;const request=JSON.parse(options.body);assert.match(request.messages[0].content,/correctOptionIndex/);return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:[{...letterQuestion,answers:['mismatched model text'],correctOptionIndex:1}]})}}]}))};
+try{const response=await handleApi(req('lesson',{}),env);const data=await response.json();assert.equal(response.status,200);assert.equal(indexedCalls,1);assert.equal(data.lesson.questions[10].answers[0],'B. Second explanation');assert.equal(data.lesson.passage,q11draft.passage);const cache=JSON.parse(map.get('users/test/lessons/'+today+'.json'));validateLesson(cache);console.log('PASS: existing draft Q11 recovered and saved with exact indexed option in one request; passage unchanged')}finally{globalThis.fetch=realFetch}
 
