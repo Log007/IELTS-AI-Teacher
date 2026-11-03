@@ -42,4 +42,36 @@ const evidenceVariant=structuredClone(fixture);evidenceVariant.questions[0].evid
 map.delete('users/test/lessons/'+today+'.json');const saved=structuredClone(fixture);saved.questions[2].evidence='Not in the passage';map.set('users/test/drafts/'+today+'.json',JSON.stringify({lesson:saved,stage:'repaired'}));let repairedCalls=0;
 globalThis.fetch=async()=>{repairedCalls++;return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:[fixture.questions[2]]})}}]}))};
 try{const response=await handleApi(req('lesson',{}),env);assert.equal(response.status,200);const result=await response.json();assert.equal(repairedCalls,1);assert.equal(result.lesson.passage,fixture.passage);assert.equal(result.lesson.questions.length,13);console.log('PASS: saved draft recovers via one-question repair without regenerating passage or full lesson')}finally{globalThis.fetch=realFetch}
+import {repairQuestions} from '../src/api.js';
+const brokenNine=structuredClone(fixture);
+brokenNine.questions[8]={...letterQuestion,answers:['Z']};
+let retries=0,progress=0;
+globalThis.fetch=async(_url,options)=>{
+ const payload=JSON.parse(options.body),task=JSON.parse(payload.messages.at(-1).content);
+ assert.match(task.issue,/无法唯一匹配/);
+ retries++;
+ return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:[{...letterQuestion,answers:[retries===1?'Z':'B']}]})}}]}));
+};
+try{
+ const fixed=await repairQuestions(brokenNine,'fake-test-key',async()=>progress++);
+ assert.equal(retries,2);assert.equal(progress,1);
+ assert.equal(fixed.questions[8].answers[0],'B. Second explanation');
+ validateLesson(fixed);
+ console.log('PASS: Q9 rejected option revision retries with precise issue, then accepts a valid unique answer and checkpoints');
+}finally{globalThis.fetch=realFetch}
+retries=0;
+globalThis.fetch=async()=>{retries++;return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:[{...letterQuestion,answers:['Z']}]})}}]}))};
+try{
+ await assert.rejects(repairQuestions({...structuredClone(fixture),questions:[{...letterQuestion,answers:['Z']}]},'fake-test-key'),/无法唯一匹配/);
+ assert.equal(retries,2);
+ console.log('PASS: persistent invalid options stop after two attempts without accepting an invalid question');
+}finally{globalThis.fetch=realFetch}
+// First generation and review both produce a broken Q9; local repair fails twice,
+// but the full-lesson recovery path must still run instead of aborting early.
+map.delete('users/test/lessons/'+today+'.json');map.delete('users/test/drafts/'+today+'.json');map.delete('users/test/generation-v3/'+today+'.json');
+const bad=structuredClone(fixture);bad.questions[8]={...letterQuestion,answers:['Z']};
+const sequence=[bad,bad,{questions:[{...letterQuestion,answers:['Z']}]},{questions:[{...letterQuestion,answers:['Z']}]},fixture];
+let recoveryCalls=0;
+globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(sequence[recoveryCalls++])}}]}));
+try{const response=await handleApi(req('lesson',{}),env);assert.equal(response.status,200);assert.equal(recoveryCalls,5);assert(map.has('users/test/lessons/'+today+'.json'));console.log('PASS: failed Q9 repair reaches bounded whole-lesson fallback and saves only validated content')}finally{globalThis.fetch=realFetch}
 
