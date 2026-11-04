@@ -53,8 +53,11 @@ export async function repairQuestions(p,key,onProgress=async()=>{}){
  }
  return p;
 }
+const vocabFields=['word','ipa','pos','meaning','collocation','example','translation','synonyms','pitfall'];
+export function vocabularyIssue(v){return !v||typeof v!=='object'?'不是词汇对象':vocabFields.filter(k=>typeof v[k]!=='string'||!v[k].trim()).join('、')}
 export function normalizeLesson(p){
  if(!p||typeof p!=='object')return p;
+ if(Array.isArray(p.vocabulary))for(const v of p.vocabulary){if(!v||typeof v!=='object')continue;for(const k of ['collocation','synonyms','pitfall'])if(Array.isArray(v[k])&&v[k].length&&v[k].every(x=>typeof x==='string'&&x.trim()))v[k]=v[k].join('；')}
  if(!Array.isArray(p.questions))return p;
  const label=s=>s.normalize('NFKC').trim().match(/^(?:\(([A-Z]|[ivx]+)\)|([A-Z]|[ivx]+)[.、):：\-])\s*/i);
  for(const q of p.questions){
@@ -105,11 +108,12 @@ export function validateLesson(p){
  if(!Array.isArray(p.questions)||p.questions.length!==13||!Array.isArray(p.vocabulary)||p.vocabulary.length!==10)throw fail('题目实际 '+(Array.isArray(p.questions)?p.questions.length:'非数组')+' 道（要求13），词汇实际 '+(Array.isArray(p.vocabulary)?p.vocabulary.length:'非数组')+' 个（要求10）。',502);
  if(new Set(p.questions.map(q=>q.type)).size<3)throw fail('题型分布不足，请重试。',502);
  for(const [index,q] of p.questions.entries()){const issue=questionIssue(q,p.passage);if(issue)throw fail('Q'+(index+1)+'：'+issue+'。',502)}
- for(const v of p.vocabulary){if(!['word','ipa','pos','meaning','collocation','example','translation','synonyms','pitfall'].every(k=>typeof v[k]==='string'))throw fail('词汇字段不完整，请重试。',502)}
+ for(const [i,v]of p.vocabulary.entries()){const issue=vocabularyIssue(v);if(issue)throw fail('第'+(i+1)+'个词汇字段不完整：'+issue+'。',502)}
  if(typeof p.translation!=='string'||typeof p.arrangement!=='string'||typeof p.sentences!=='string')throw fail('教学讲解不完整，请重试。',502);return p;
 }
 export async function repairCounts(p,key){
  if(!p||typeof p.passage!=='string')return p;
+ normalizeLesson(p);const invalidVocabulary=!Array.isArray(p.vocabulary)||p.vocabulary.some(v=>vocabularyIssue(v));
  const original={questions:Array.isArray(p.questions)?p.questions.length:null,vocabulary:Array.isArray(p.vocabulary)?p.vocabulary.length:null};
  if(original.questions!==13){
   const questions=[];
@@ -122,7 +126,7 @@ export async function repairCounts(p,key){
   }
   p={...p,questions};
  }
- if(original.vocabulary!==10){
+ if(original.vocabulary!==10||invalidVocabulary){
   const vocabulary=[];
   for(let batch=0;batch<2;batch++){
    const response=await deepseek(key,[{role:'system',content:'你是雅思词汇教师。仅输出JSON对象 {"vocabulary":[词汇对象]}，恰好5个实用学术词汇。每个词字段 word,ipa（英式IPA）,pos,meaning,collocation,example,translation,synonyms,pitfall 必须是字符串。不要省略字段、不要重复已选单词，不要输出文章或题目。'}, {role:'user',content:JSON.stringify({topic:p.topic,passage:p.passage,excluded:vocabulary.map(v=>v.word),requiredCount:5})}],{response_format:{type:'json_object'},max_tokens:3500});
@@ -130,7 +134,7 @@ export async function repairCounts(p,key){
   }
   p={...p,vocabulary};
  }
- if(original.questions!==13||original.vocabulary!==10){p={...p,quality:'component-checked-v2'};console.info(JSON.stringify({route:'/api/lesson',stage:'repaired_counts',before:original,after:{questions:p.questions.length,vocabulary:p.vocabulary.length}}))}
+ if(original.questions!==13||original.vocabulary!==10||invalidVocabulary){p={...p,quality:'component-checked-v2'};console.info(JSON.stringify({route:'/api/lesson',stage:'repaired_counts',before:original,after:{questions:p.questions.length,vocabulary:p.vocabulary.length}}))}
  return p;
 }
 const lessonPrompt=()=>`你是严谨的雅思 Academic 私人教师。学生四级水平，两个月目标6.0至6.5。输出纯 JSON 对象，不使用 Markdown。所有文章必须原创仿真，不冒充真题。不虚构成绩或用户掌握程度。

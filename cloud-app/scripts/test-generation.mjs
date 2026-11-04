@@ -100,4 +100,13 @@ assert.equal(normalizeLesson({questions:[{type:'invented-type'}]}).questions[0].
 let batchCalls=0;
 globalThis.fetch=async(_url,options)=>{batchCalls++;const task=JSON.parse(JSON.parse(options.body).messages.at(-1).content);const type=task.type==='判断题'?'TRUE/FALSE/NOT GIVEN':task.type==='填空题'?'sentence_completion':'multiple_choice';return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:Array.from({length:task.requiredCount},()=>({...letterQuestion,type,...(task.type==='判断题'?{options:['TRUE','FALSE','NOT GIVEN'],answers:['TRUE']}:task.type==='填空题'?{options:[],answers:['Evidence'],maxWords:1}:{})}))})}}]}))};
 try{const repaired=await repairCounts({...structuredClone(fixture),questions:[]},'fake-test-key');validateLesson(repaired);assert.equal(batchCalls,3);assert.equal(repaired.questions.length,13);assert.equal(repaired.questions[0].type,'判断题');console.log('PASS: 4 TFNG + 4 sentence_completion + 5 multiple_choice normalized and validated; unknown types remain rejected by validation')}finally{globalThis.fetch=realFetch}
+// Vocabulary count can be correct while a required field is absent or list-valued.
+const {vocabularyIssue}=await import('../src/api.js');
+const lists=structuredClone(fixture);lists.vocabulary[0].synonyms=['retain','preserve'];lists.vocabulary[0].collocation=['retain evidence'];normalizeLesson(lists);assert.equal(lists.vocabulary[0].synonyms,'retain；preserve');validateLesson(lists);
+assert(vocabularyIssue(null));assert(vocabularyIssue({...fixture.vocabulary[0],ipa:''}).includes('ipa'));
+const missing=structuredClone(fixture);delete missing.vocabulary[3].ipa;assert.throws(()=>validateLesson(missing),/第4个.*ipa/);
+map.delete('users/test/lessons/'+today+'.json');map.delete('users/test/generation-v3/'+today+'.json');map.set('users/test/drafts/'+today+'.json',JSON.stringify({lesson:missing}));
+let vocabularyCalls=0;
+globalThis.fetch=async(_url,options)=>{const task=JSON.parse(JSON.parse(options.body).messages.at(-1).content);assert.equal(task.requiredCount,5);vocabularyCalls++;return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({vocabulary:structuredClone(fixture.vocabulary.slice((vocabularyCalls-1)*5,vocabularyCalls*5))})}}]}))};
+try{const response=await handleApi(req('lesson',{}),env);const data=await response.json();assert.equal(response.status,200);assert.equal(vocabularyCalls,2);assert.equal(data.lesson.passage,fixture.passage);assert.deepEqual(data.lesson.questions,missing.questions);validateLesson(data.lesson);console.log('PASS: saved draft with 10 words and missing IPA repaired via vocabulary-only batches; passage and all questions preserved')}finally{globalThis.fetch=realFetch}
 
