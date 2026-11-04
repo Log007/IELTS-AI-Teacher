@@ -91,4 +91,13 @@ const q11draft=structuredClone(fixture);q11draft.questions[10]={...letterQuestio
 let indexedCalls=0;
 globalThis.fetch=async(_url,options)=>{indexedCalls++;const request=JSON.parse(options.body);assert.match(request.messages[0].content,/correctOptionIndex/);return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:[{...letterQuestion,answers:['mismatched model text'],correctOptionIndex:1}]})}}]}))};
 try{const response=await handleApi(req('lesson',{}),env);const data=await response.json();assert.equal(response.status,200);assert.equal(indexedCalls,1);assert.equal(data.lesson.questions[10].answers[0],'B. Second explanation');assert.equal(data.lesson.passage,q11draft.passage);const cache=JSON.parse(map.get('users/test/lessons/'+today+'.json'));validateLesson(cache);console.log('PASS: existing draft Q11 recovered and saved with exact indexed option in one request; passage unchanged')}finally{globalThis.fetch=realFetch}
+// Regression for November 4: correct batch size with TFNG/English labels must
+// reach normalization, not fail with a misleading "4 questions, expected 4".
+const {normalizeLesson,questionIssue}=await import('../src/api.js');
+const aliases={TFNG:'判断题','TRUE / FALSE / NOT GIVEN':'判断题','判断题（TRUE/FALSE/NOT GIVEN）':'判断题',multiple_choice:'选择题','sentence completion':'填空题','Matching Headings':'段落匹配'};
+for(const [type,expected]of Object.entries(aliases)){const p=normalizeLesson({passage:'Evidence',questions:[{...letterQuestion,type}]});assert.equal(p.questions[0].type,expected)}
+assert.equal(normalizeLesson({questions:[{type:'invented-type'}]}).questions[0].type,'invented-type');
+let batchCalls=0;
+globalThis.fetch=async(_url,options)=>{batchCalls++;const task=JSON.parse(JSON.parse(options.body).messages.at(-1).content);const type=task.type==='判断题'?'TRUE/FALSE/NOT GIVEN':task.type==='填空题'?'sentence_completion':'multiple_choice';return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({questions:Array.from({length:task.requiredCount},()=>({...letterQuestion,type,...(task.type==='判断题'?{options:['TRUE','FALSE','NOT GIVEN'],answers:['TRUE']}:task.type==='填空题'?{options:[],answers:['Evidence'],maxWords:1}:{})}))})}}]}))};
+try{const repaired=await repairCounts({...structuredClone(fixture),questions:[]},'fake-test-key');validateLesson(repaired);assert.equal(batchCalls,3);assert.equal(repaired.questions.length,13);assert.equal(repaired.questions[0].type,'判断题');console.log('PASS: 4 TFNG + 4 sentence_completion + 5 multiple_choice normalized and validated; unknown types remain rejected by validation')}finally{globalThis.fetch=realFetch}
 
