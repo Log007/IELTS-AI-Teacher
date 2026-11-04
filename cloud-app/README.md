@@ -70,3 +70,7 @@ src/ 为可维护源码；scripts/build.mjs 将页面与API打包到 Worker。�
 - 参考：IDP 的 IELTS on computer 高亮功能说明：https://ielts.idp.com/bangladesh/about/which-test-do-i-take/ielts-on-computer/how-to-highlight-text 。本站为训练交互，不声称与每个考场的软件完全相同。
 - DOM交互回归：`node scripts/test-reading-ui.mjs`（开发环境需安装 jsdom；也可用 `IELTS_DOM_MODULE` 指向独立安装的 jsdom 入口）。覆盖选区跨高亮节点、部分取消、刷新恢复、文章变化保护、浮窗键盘与焦点、复盘回复布局。DOM测试不验证浏览器实际尺寸和视觉排版。
 
+### 领域轮换（2026-11-04）
+新生成学习包由服务端选择科技工程、心理认知、历史考古、教育学习、生物、社会经济、语言文化、环境地理八类之一。优先最近14份覆盖少的领域，排除最近两份已识别领域；每类提供3个具体切入点，避开近期已使用的切入点。旧文章仅通过标题与主题关键词做有限分类，无法识别的保留为未分类；新材料保存 topicPlan 标签。生成、整包校对与修复均收到同一选题约束。已保存当日包和旧草稿的成功恢复不重写内容。页面显示领域与安排理由。该策略控制选题安排；文章语义是否完全遵循要求仍受模型输出质量影响，不声称提供已标定的题库。
+验证：node scripts/test-topics.mjs，模拟24次训练检查八类覆盖、近两次领域避重和近14次切入点避重；生成与API回归检查通过。
+
