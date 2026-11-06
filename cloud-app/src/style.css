@@ -30,3 +30,9 @@ main{max-width:1600px;padding:24px 24px 88px}
 @media(max-width:760px){main{padding:14px 12px 84px}header{padding:22px 16px}.reading-workspace{display:flex;flex-direction:column;height:auto;max-height:none;min-height:0}.reading-pane{height:65dvh;min-height:300px}.question-pane{height:70dvh}.pane-heading{padding:12px}.toolbar{gap:6px;padding:12px}.toolbar button{padding:9px 10px;font-size:14px}#timer{font-size:26px}#passage{padding:16px;font-size:18px}#tutor{right:12px}#diagnosisReading{height:42dvh;min-height:220px;padding:12px}.diagnosis-panel{padding:12px}.dialogue-message.user{margin-left:10px}.dialogue-message.assistant{margin-right:10px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
+.question .question-number{font-size:.78rem;font-weight:700;letter-spacing:.03em;color:#496b64;margin:0 0 7px}
+.question .question-stem{font-size:1.16rem;line-height:1.5;color:#123237;margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.question .question-limit{display:inline-block;margin:0 0 6px;padding:3px 8px;border-radius:5px;background:#e8f2ed;color:#22564b;font-size:.83rem;font-weight:600}
+.question-instructions{color:#496b64;font-size:.85rem;line-height:1.55}
+.question-instructions p{margin:4px 0 10px;white-space:pre-wrap}
+
