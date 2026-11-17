@@ -109,7 +109,12 @@
 <section class="reading-pane question-pane" aria-labelledby="questionsHeading">
 <div class="pane-heading">
 <h2 id="questionsHeading">作答题目</h2>
-<p>独立滚动 · 提交后原位查看正误与解析。</p>
+<div class="highlight-tools" role="group" aria-label="题目重点标记">
+<button type="button" id="questionHighlightAdd" disabled>标记重点</button>
+<button type="button" id="questionHighlightRemove" disabled>取消选中标记</button>
+<button type="button" id="questionHighlightClear" disabled>清空题目重点</button>
+</div>
+<p id="questionHighlightStatus" role="status">选中题干或展开的作答说明后点“标记重点” · 本机保存。</p>
 </div>
 <div class="question-scroll" tabindex="0" aria-label="题目与作答，可独立滚动">
 <div id="scoreCard" class="card" role="status" hidden>

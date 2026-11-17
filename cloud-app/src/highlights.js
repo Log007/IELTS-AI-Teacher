@@ -25,3 +25,61 @@ export function createPassageHighlighter({passage,add,remove,clear,status,read,w
  return {load(id,content){text=content;key='ielts-cloud-v2-highlights-'+id;const saved=read(key,{});ranges=saved.text===text?mergeHighlights(saved.ranges,text.length):[];paint();passage.scrollTop=0;message()}};
 }
 
+// Only repaint registered question text blocks, never the form or answer controls.
+export function createQuestionHighlighter({root,add,remove,clear,status,read,write}){
+ const doc=root.ownerDocument,scroll=root.closest('.question-scroll');
+ let key='',blocks=[],selection=null;
+ function resetSelection(){selection=null;add.disabled=remove.disabled=true}
+ function message(){
+  const count=blocks.reduce((sum,b)=>sum+b.ranges.length,0);
+  clear.disabled=!count;
+  status.textContent=count?'已保留 '+count+' 处题目重点 · 仅保存在本浏览器。':'选中题干或展开的作答说明后点“标记重点” · 本机保存。';
+ }
+ function paint(block){
+  const {element,text,ranges}=block;
+  element.replaceChildren();let at=0;
+  for(const [start,end]of ranges){
+   element.append(doc.createTextNode(text.slice(at,start)));
+   const mark=doc.createElement('mark');mark.textContent=text.slice(start,end);element.append(mark);at=end;
+  }
+  element.append(doc.createTextNode(text.slice(at)));
+ }
+ function repaint(changed){
+  const top=scroll?.scrollTop;
+  changed.forEach(paint);
+  if(scroll)scroll.scrollTop=top;
+  resetSelection();message();
+ }
+ function commit(changed){
+  write(key,{blocks:blocks.map(({id,text,ranges})=>({id,text,ranges}))});
+  repaint(changed);
+ }
+ doc.addEventListener('selectionchange',()=>{
+  resetSelection();
+  const selected=doc.getSelection();
+  if(!selected||selected.isCollapsed||!selected.rangeCount)return;
+  const range=selected.getRangeAt(0);
+  // Selections spanning form controls or separate text blocks are not modified.
+  const block=blocks.find(b=>b.element.contains(range.startContainer)&&b.element.contains(range.endContainer));
+  if(!block)return;
+  const prefix=range.cloneRange();prefix.selectNodeContents(block.element);prefix.setEnd(range.startContainer,range.startOffset);
+  const start=prefix.toString().length,end=start+range.toString().length;
+  if(start<end&&end<=block.text.length){selection={block,start,end};add.disabled=remove.disabled=false}
+ });
+ root.addEventListener('focusin',event=>{if(event.target.matches('input,textarea,select'))resetSelection()});
+ for(const button of [add,remove])button.addEventListener('pointerdown',event=>event.preventDefault());
+ add.onclick=()=>{if(!selection)return;const {block,start,end}=selection;block.ranges=mergeHighlights([...block.ranges,[start,end]],block.text.length);commit([block])};
+ remove.onclick=()=>{if(!selection)return;const {block,start,end}=selection;block.ranges=subtractHighlight(block.ranges,[start,end]);commit([block])};
+ clear.onclick=()=>{if(!key)return;blocks.forEach(b=>b.ranges=[]);commit(blocks)};
+ return {load(id){
+  key='ielts-cloud-v2-question-highlights-'+id;
+  const saved=read(key,{}),entries=Array.isArray(saved?.blocks)?saved.blocks:[];
+  blocks=[...root.querySelectorAll('[data-highlight-key]')].map(element=>{
+   const id=element.dataset.highlightKey,text=element.textContent;
+   const previous=entries.find(b=>b?.id===id&&b.text===text);
+   return {element,id,text,ranges:mergeHighlights(previous?.ranges,text.length)};
+  });
+  repaint(blocks);
+ }};
+}
+

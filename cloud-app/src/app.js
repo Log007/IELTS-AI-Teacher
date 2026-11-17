@@ -1,4 +1,4 @@
-import {createPassageHighlighter} from './highlights.js';
+import {createPassageHighlighter,createQuestionHighlighter} from './highlights.js';
 import {scoreAnswers,trainingPlan,dailyTip,causeOptions} from './learning.js';
 import {createPronunciationButton} from './pronunciation.js';
 const $=s=>document.querySelector(s);
@@ -6,6 +6,7 @@ const cacheKey='ielts-cloud-v2';
 const safeRead=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value))}catch{notice('浏览器缓存不可用，请保持联网并及时保存到云端。')}};
 const highlighter=createPassageHighlighter({passage:$('#passage'),add:$('#highlightAdd'),remove:$('#highlightRemove'),clear:$('#highlightClear'),status:$('#highlightStatus'),read:safeRead,write:save});
+const questionHighlighter=createQuestionHighlighter({root:$('#questions'),add:$('#questionHighlightAdd'),remove:$('#questionHighlightRemove'),clear:$('#questionHighlightClear'),status:$('#questionHighlightStatus'),read:safeRead,write:save});
 let lesson=null,records=[],configured=false,clock=null,pending=null,conversation=[];
 let plannedSeconds=trainingPlan(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())).seconds;
 function notice(t){$('#notice').textContent=t}
@@ -35,10 +36,12 @@ function renderQuestionHeading(card,q,index){
   details.append(node('summary','作答说明'),node('p',notes.join('\n')));
   card.append(details);
  }
+ card.querySelectorAll('.question-stem,.question-limit,.question-instructions p').forEach((element,part)=>element.dataset.highlightKey=index+':'+part);
 }
 function renderLesson(p){lesson=p;$('#trainingTip').textContent=p.trainingTip||dailyTip(p.date);applyPlan({...(p.trainingPlan||trainingPlan(p.date)),seconds:p.seconds});$('#scoreCard').hidden=true;$('#feedback').hidden=true;save(cacheKey+'-lesson',p);$('#lessonEmpty').hidden=true;$('#lessonContent').hidden=false;$('#lessonTitle').textContent=p.title;$('#lessonMeta').textContent=p.date+' · '+p.topic+' · '+(p.wordCount||(p.passage.trim().match(/\S+/g)||[]).length)+'词 · 原创仿真材料，非官方真题 · '+(p.seconds/60)+'分钟'+(p.quality==='model-reviewed-v1'?' · 已模型校对':p.quality?' · 已分组检查':'');$('#arrangement').textContent=(p.topicPlan?'今日领域：'+p.topicPlan.domain+'。'+p.topicPlan.reason+'\n':'')+p.arrangement;highlighter.load(p.id,p.passage);$('#translation').textContent=p.translation;$('#sentences').textContent=p.sentences;$('#questions').replaceChildren();$('#vocabulary').replaceChildren();$('#explanations').replaceChildren();
  for(const v of p.vocabulary){let d=node('div',undefined,'vocab');d.append(node('h3',v.word+' '+v.ipa+' '+v.pos),createPronunciationButton(v.word,text=>{$('#speechStatus').textContent=text}),node('p',v.meaning+' · '+v.collocation),node('p',v.example+'\n'+v.translation),node('p','同义替换：'+v.synonyms+'\n易错点：'+v.pitfall));$('#vocabulary').append(d)}
  p.questions.forEach((q,i)=>{let d=node('div',undefined,'question');d.id='question'+i;renderQuestionHeading(d,q,i);let label=node('label','你的答案');let field;if(q.options){field=node('select');field.append(new Option('请选择',''));q.options.forEach(o=>field.append(new Option(o,o)))}else{field=node('input');field.maxLength=300;field.placeholder='最多 '+q.maxWords+' 个英文单词'}field.id='q'+i;label.htmlFor=field.id;let fields=node('div',undefined,'answer-fields'),answerControl=node('div');answerControl.append(label,field);fields.append(answerControl);let c=node('label','信心（选填）','confidence'),select=node('select');select.id='c'+i;c.htmlFor=select.id;['未提供','确定','犹豫','猜测'].forEach(o=>select.append(new Option(o,o)));let confidenceControl=node('div');confidenceControl.append(c,select);fields.append(confidenceControl);d.append(fields);$('#questions').append(d);let ex=node('div',undefined,'result');ex.append(node('h3','Q'+(i+1)+' · '+q.answers[0]),node('p','原文：'+q.evidence),node('p',q.explanation),node('p','下次策略：'+q.strategy));$('#explanations').append(ex)});
+ questionHighlighter.load(p.id);
  let draft=safeRead(draftKey(),{});draft.answers?.forEach((a,i)=>{if($('#q'+i)){$('#q'+i).value=a.value;$('#c'+i).value=a.confidence}});clock=draft.clock||null;pending=draft.pending||null;const submitted=records.some(r=>r.lessonId===p.id);$('#analysis').classList.toggle('locked',!submitted);$('#analysis').open=false;if(pending){openFeedback();saveObjective()}else if(submitted&&!clock){const prior=records.find(r=>r.lessonId===p.id);prior.answers.forEach((a,i)=>{$('#q'+i).value=a.answer;$('#c'+i).value=a.confidence});paintAnswers(prior.answers,true);if(prior.feedbackPending){pending={id:prior.id,lessonId:prior.lessonId,answers:prior.answers.map(a=>({value:a.answer,confidence:a.confidence})),startedAt:prior.startedAt,finishedAt:prior.finishedAt,elapsedSeconds:prior.elapsedSeconds};openFeedback()}}tick()}
 $('#questions').addEventListener('input',keepDraft);$('#questions').addEventListener('change',keepDraft);
 $('#analysis').addEventListener('toggle',()=>{if($('#analysis').open&&$('#analysis').classList.contains('locked')){$('#analysis').open=false;notice('请先完成练习并保存反馈，再看答案解析。')}});

@@ -27,7 +27,7 @@ summary{cursor:pointer;font-weight:600;padding:5px 0}summary::marker{color:#8a98
 .reading-pane{min-width:0;min-height:0;display:flex;flex-direction:column;background:white;border:1px solid var(--line);border-radius:8px;overflow:hidden}.pane-heading{padding:16px 22px;border-bottom:1px solid var(--line);flex:none}.pane-heading h2{font-size:16px;margin:0 0 10px}.pane-heading p{color:var(--muted);font-size:12px;margin:8px 0 0}
 .highlight-tools{display:flex;flex-wrap:wrap;gap:6px}.highlight-tools button{font-size:12px;padding:5px 9px}
 #passage{font-family:Georgia,'Times New Roman',serif;font-size:19px;line-height:1.95;white-space:pre-wrap;margin:0;padding:28px;overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;overflow-wrap:anywhere;scrollbar-gutter:stable}
-#passage mark{background:#faeaa2;color:inherit;border-radius:2px}#passage::selection,#passage mark::selection{background:#c9dfd3;color:#1e382d}
+#passage mark,.question [data-highlight-key] mark{background:#faeaa2;color:inherit;border-radius:2px}#passage::selection,#passage mark::selection,.question [data-highlight-key]::selection,.question [data-highlight-key] mark::selection{background:#c9dfd3;color:#1e382d}
 .question-scroll{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:0 22px 20px;scrollbar-gutter:stable}
 .question{border-bottom:1px solid var(--line);border-left:3px solid transparent;padding:24px 0 24px 14px;margin:0;scroll-margin:20px}.question:last-child{border-bottom:0}
 .question .question-number{font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--accent);margin:0 0 10px}.question .question-stem{font-size:19px;font-weight:650;line-height:1.55;color:var(--ink);margin:0 0 12px;white-space:pre-wrap;overflow-wrap:anywhere}
