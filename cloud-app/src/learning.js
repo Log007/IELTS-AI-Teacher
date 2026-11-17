@@ -1,4 +1,4 @@
-export function trainingPlan(date){const advanced=date>='2026-11-09';return {stage:advanced?'进阶仿真':'本周入门',targetMin:advanced?800:650,targetMax:advanced?950:850,min:advanced?800:600,max:advanced?1100:1000,seconds:1320,nextStage:'2026-11-09'}}
+export function trainingPlan(date){const advanced=date>='2026-11-09';return {stage:advanced?'进阶仿真':'本周入门',targetMin:advanced?800:650,targetMax:advanced?950:850,min:advanced?800:600,max:advanced?1100:1000,seconds:date>='2026-11-18'?1260:1320,nextStage:'2026-11-09'}}
 const tips=[
  '先读题干并圈出人名、年份等定位词，再回原文寻找同义表达。不要只因看到相同单词就选答案。',
  '判断题中，FALSE需要原文给出相反证据；原文没有足够信息时才考虑NOT GIVEN。不要用常识补足缺失信息。',

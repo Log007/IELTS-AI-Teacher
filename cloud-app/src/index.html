@@ -42,7 +42,7 @@
 <summary>原创仿真训练 · 非官方真题 <span class="summary-note">训练说明与来源</span>
 </summary>
 <p id="trainingSummary">目标650–850词的学术文章（允许600–1000词的合理浮动）、13道题、至少3种题型，结合定位、同义替换、逻辑与段落理解。新生成材料经过模型校对和程序检查，未达标时自动修订一次；仍可能存在歧义，欢迎向老师质疑。</p>
-<p class="muted">材料是AI原创仿真，非官方真题，难度未经过真实考生标定。当前训练周数未设定，默认22分钟。你也可以用官方样题核对考试形式：</p>
+<p class="muted">材料是AI原创仿真，非官方真题，难度未经过真实考生标定。<span id="trainingLimit">限时按练习日期设置。</span>你也可以用官方样题核对考试形式：</p>
 <p>
 <a href="https://takeielts.britishcouncil.org/prepare/ielts-free-practice-mock-tests/academic/reading?language=en" target="_blank" rel="noopener noreferrer">British Council 官方样题参考</a>
 </p>
@@ -50,7 +50,7 @@
 <div class="toolbar card">
 <div class="timer-display">
 <span>阅读计时</span>
-<strong id="timer" role="timer" aria-label="剩余时间">22:00</strong>
+<strong id="timer" role="timer" aria-label="剩余时间">--:--</strong>
 </div>
 <div class="timer-actions">
 <button id="start" disabled>开始练习</button>
@@ -59,7 +59,7 @@
 <button id="finish" class="primary" disabled>提交答案</button>
 </div>
 </div>
-<p id="status">训练周数尚未设定，默认 22 分钟。先独立作答，再查看解析。</p>
+<p id="status">正在载入训练时长。先独立作答，再查看解析。</p>
 <div id="lessonEmpty" class="card">
 <h2>开始今天的精读</h2>
 <p>一篇文章，13 道题，10 个词汇。首次准备约需 2–6 分钟，完成后自动保存。生成材料会使用 DeepSeek API 余额。</p>
